@@ -3,7 +3,6 @@ import ContactList from './components/ContactList';
 import Filter from './components/Filter';
 import ContactForm from './components/ContactForm';
 
-
 class App extends Component {
   state = {
     contacts: [
@@ -14,6 +13,19 @@ class App extends Component {
     ],
     filter: '',
   };
+
+  componentDidMount() {
+    const savedContacts = localStorage.getItem('contacts');
+    if (savedContacts) {
+      this.setState({ contacts: JSON.parse(savedContacts) });
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (this.state.contacts !== prevState.contacts) {
+      localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
+    }
+  }
 
   addContact = (newContact) => {
     const isExist = this.state.contacts.find(
