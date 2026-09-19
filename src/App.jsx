@@ -1,80 +1,88 @@
-import React, { Component } from 'react';
-import ContactList from './components/ContactList';
-import Filter from './components/Filter';
-import ContactForm from './components/ContactForm';
+import React, { useEffect, useState } from "react";
+import { Navigate, Routes, Route } from "react-router-dom";
+import { AppBar } from "./components/AppBar";
+import { HomePage } from "./pages/HomePage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { LoginPage } from "./pages/LoginPage";
+import { ContactsPage } from "./pages/ContactsPage";
+import { fetchCurrentUser, loginUser, logoutUser, registerUser } from "./services/api";
 
-class App extends Component {
-  state = {
-    contacts: [
-      { id: 'id-1', name: 'Rosie Simpson', number: '459-12-56' },
-      { id: 'id-2', name: 'Hermione Kline', number: '443-89-12' },
-      { id: 'id-3', name: 'Eden Clements', number: '645-17-79' },
-      { id: 'id-4', name: 'Annie Copeland', number: '227-91-26' },
-    ],
-    filter: '',
-  };
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token") || "");
 
-  componentDidMount() {
-    const savedContacts = localStorage.getItem('contacts');
-    if (savedContacts) {
-      this.setState({ contacts: JSON.parse(savedContacts) });
-    }
-  }
+  useEffect(() => {
+    if (token)
+      fetchCurrentUser(token)
+        .then(setUser)
+        .catch(() => {
+          setUser(null);
+          setToken("");
+          localStorage.removeItem("token");
+        });
+  }, [token]);
 
-  componentDidUpdate(prevProps, prevState) {
-    if (this.state.contacts !== prevState.contacts) {
-      localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
-    }
-  }
+  const handleRegister = (data) =>
+    registerUser(data).then((res) => {
+      setUser(res.user);
+      setToken(res.token);
+      localStorage.setItem("token", res.token);
+    });
+  const handleLogin = (data) =>
+    loginUser(data).then((res) => {
+      setUser(res.user);
+      setToken(res.token);
+      localStorage.setItem("token", res.token);
+    });
+  const handleLogout = () =>
+    logoutUser(token).then(() => {
+      setUser(null);
+      setToken("");
+      localStorage.removeItem("token");
+    });
 
-  addContact = (newContact) => {
-    const isExist = this.state.contacts.find(
-      contact => contact.name.toLowerCase() === newContact.name.toLowerCase()
-    );
+  const isLoggedIn = Boolean(user);
 
-    if (isExist) {
-      alert(`${newContact.name} is already in contacts.`);
-      return;
-    }
-
-    this.setState(prevState => ({
-      contacts: [...prevState.contacts, newContact],
-    }));
-  };
-
-  deleteContact = (contactId) => {
-    this.setState(prevState => ({
-      contacts: prevState.contacts.filter(contact => contact.id !== contactId),
-    }));
-  };
-
-  changeFilter = (e) => {
-    this.setState({ filter: e.target.value });
-  };
-
-  getVisibleContacts = () => {
-    const { contacts, filter } = this.state;
-    const normalizedFilter = filter.toLowerCase();
-    return contacts.filter(c => c.name.toLowerCase().includes(normalizedFilter));
-  };
-
-  render() {
-    const visibleContacts = this.getVisibleContacts();
-
-    return (
-      <div style={{ padding: '20px' }}>
-        <h1>Phonebook</h1>
-        <ContactForm onSubmit={this.addContact} />
-
-        <h2>Contacts</h2>
-        <Filter value={this.state.filter} onChange={this.changeFilter} />
-        <ContactList 
-          contacts={visibleContacts} 
-          onDeleteContact={this.deleteContact} 
+  return (
+    <div>
+      <AppBar
+        isLoggedIn={isLoggedIn}
+        email={user?.email}
+        onLogout={handleLogout}
+      />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/register"
+          element={
+            isLoggedIn ? (
+              <Navigate to="/contacts" />
+            ) : (
+              <RegisterPage onRegister={handleRegister} />
+            )
+          }
         />
-      </div>
-    );
-  }
+        <Route
+          path="/login"
+          element={
+            isLoggedIn ? (
+              <Navigate to="/contacts" />
+            ) : (
+              <LoginPage onLogin={handleLogin} />
+            )
+          }
+        />
+        <Route
+          path="/contacts"
+          element={
+            isLoggedIn ? (
+              <ContactsPage token={token} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+      </Routes>
+    </div>
+  );
 }
-
-export default App;
